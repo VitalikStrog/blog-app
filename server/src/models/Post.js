@@ -1,6 +1,5 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../utils/db.js';
-import { User } from './User.js';
 
 export const Post = sequelize.define('post', {
   id: {
@@ -8,19 +7,16 @@ export const Post = sequelize.define('post', {
     unique: true,
     primaryKey: true,
   },
-  title: {
+  name: {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  content: {
+  description: {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  authorName: {
-    type: DataTypes.STRING,
+  published: {
+    type: DataTypes.BOOLEAN,
     allowNull: false,
   },
 });
-
-User.hasMany(Post);
-Post.belongsTo(User);

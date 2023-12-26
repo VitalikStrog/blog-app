@@ -1,98 +1,88 @@
 import { v4 as uuidv4 } from "uuid"
 import { Post } from '../models/Post.js';
-import { User } from '../models/User.js';
-import { Role } from '../models/Role.js';
 import { ApiError } from '../exceptions/ApiError.js';
+import { Op } from 'sequelize'
 
-function normalize({ id, title, authorName, content, createdAt }) {
-  return { id, title, authorName, createdAt, content };
+function normalize({id, name, description, published, createdAt, updatedAt}) {
+  return {id, name, createdAt, updatedAt, published, description};
 }
 
-async function getAll() {
-  const posts = await Post.findAll();
+async function getAll({search = '', filter }) {
+  const options = {
+    where: {
+      [Op.and]: [
+        ...(filter && filter !== 'all') ? [{ published: filter === 'published' }] : [],
+        {
+          [Op.or]: [
+            {
+              name: {
+                [Op.iLike]: `%${search}%`
+              }
+            },
+            {
+              description: {
+                [Op.iLike]: `%${search}%`
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+
+  const posts = await Post.findAll(options);
 
   return posts.map(normalize);
 }
 
-async function create({ title, authorId, content }) {
-  if (!title || !authorId || !content) {
+async function create({name, description, published}) {
+  if (!name || !description || !published) {
     throw ApiError.BadRequest('Send full object model');
   }
 
-  const author = await User.findOne({
-    where: { id: authorId },
-    include: Role,
-  });
-
-  if (!author) {
-    throw ApiError.BadRequest('Author does not exist');
-  }
-
   const id = uuidv4();
-  const newBlog = {
+  const newPost = {
     id,
-    title,
-    content,
-    authorName: author.userName,
-    userId: author.id,
+    name,
+    description,
+    published
   };
 
-  await Post.create(newBlog);
+  await Post.create(newPost);
 
-  return normalize(newBlog);
+  return normalize(newPost);
 }
 
-async function edit({ postId, userId, title, content, }) {
+async function edit({postId, name, description, published}) {
+  console.log(postId, name, description, published);
   const post = await Post.findOne({
-    where: { id: postId },
-  });
-  const author = await User.findOne({
-    where: { id: userId },
-    include: Role,
+    where: {id: postId},
   });
 
   if (!post) {
     throw ApiError.BadRequest('Post does not exist');
   }
 
-  if (!author) {
-    throw ApiError.BadRequest('Author does not exist');
-  }
-
-  if (author.id !== userId) {
-    throw ApiError.Unauthorized();
+  if (!name || !description || typeof published !== 'boolean') {
+    throw ApiError.BadRequest('Send full object model');
   }
 
   const updatedPost = await Post.update({
-    title,
-    content,
-  }, { where: { id: postId }});
+    name,
+    description,
+    published
+  }, {where: {id: postId}});
 
   return normalize(updatedPost);
 }
 
-async function deletePost({ postId, userId }) {
+async function deletePost({postId}) {
   const post = await Post.findOne({
-    where: { id: postId },
-  });
-  const author = await User.findOne({
-    where: { id: userId },
-    include: Role,
+    where: {id: postId},
   });
 
   if (!post) {
     throw ApiError.BadRequest('Post does not exist');
-  }
-
-  if (!author) {
-    throw ApiError.BadRequest('Author does not exist');
-  }
-
-  if (
-    author.id !== userId &&
-    !author.roles.map(role => role.roleName).includes('admin')
-  ) {
-    throw ApiError.Unauthorized();
   }
 
   await Post.destroy({
