@@ -29,18 +29,3 @@ services:
       - ./server/.envs/.app.env
     ports:
       - "5000:5000"
-  client:
-    build:
-      context: ./client
-      dockerfile: "./Dockerfile"
-    container_name: ba_client
-    command: npm start
-    depends_on:
-      - server
-      - db
-    env_file:
-      - ./client/.envs/.app.env
-    ports:
-      - "3000:3000"
-    links:
-      - server
